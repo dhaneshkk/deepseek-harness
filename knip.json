@@ -795,6 +795,14 @@
         "@deepseek-ai/dsh-code-runtime-worker-thread"
       ]
     },
+    "packages/bundle/pstack": {
+      "ignore": [
+        "skills/**"
+      ],
+      "ignoreDependencies": [
+        "@deepseek-ai/dsh-tool-subagent"
+      ]
+    },
     "packages/bundle/web-app": {
       "ignoreDependencies": [
         "@deepseek-ai/.+"

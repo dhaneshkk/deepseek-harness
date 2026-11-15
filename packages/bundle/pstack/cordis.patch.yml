@@ -1,0 +1,99 @@
+# The dsh-pstack bundle patch: pstack's skills and delegation tools over any
+# profile that applies dsh-base. Every row is an insert, so the profile's own
+# rows keep their configuration. Override one row's config from the user
+# profile patch by its id; `/setup-pstack` writes `agentOptions` that way.
+#
+# Rows sit at the profile root, so in a preset-composed profile (web) the
+# skills and tools reach every preset through the global layer.
+
+- insert:
+    # Resolves the bundled skill root and renders the delegation personas.
+    - id: pstack-assets
+      name: '@deepseek-ai/dsh-pstack'
+
+    # An isolated provider that sees only the bundled skills, beside the
+    # profile's own `skill-filesystem` row and its project and user roots.
+    - id: pstack-skill-filesystem
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      inject: [pstackAssets]
+      config:
+        providerName: pstack
+        includeDefaultRoots: false
+        customSkillDirs: !!js '[ctx.pstackAssets.skillDir]'
+        watch: false
+
+    # Code-writing delegates. Fresh in-process children with the poteto-agent
+    # persona, background by default.
+    - id: pstack-tool-poteto-agent
+      name: '@deepseek-ai/dsh-tool-subagent'
+      inject: [pstackAssets]
+      config:
+        provider: spawn
+        toolName: poteto_agent
+        backgroundMode: continuable
+        persona: !!js ctx.pstackAssets.personas.potetoAgent
+        agentOptions:
+          provider: deepseek-official
+          model: deepseek-v4-pro
+
+    - id: pstack-tool-poteto-worker
+      name: '@deepseek-ai/dsh-tool-subagent'
+      inject: [pstackAssets]
+      config:
+        provider: spawn
+        toolName: poteto_worker
+        backgroundMode: continuable
+        persona: !!js ctx.pstackAssets.personas.potetoAgent
+        agentOptions:
+          provider: deepseek-official
+          model: deepseek-v4-flash
+
+    # Review and design panel seats: fresh children with the deployment
+    # persona, one per model, foreground by default.
+    - id: pstack-tool-review-pro
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: spawn
+        toolName: pstack_review_pro
+        backgroundMode: one-shot
+        agentOptions:
+          provider: deepseek-official
+          model: deepseek-v4-pro
+
+    - id: pstack-tool-review-flash
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: spawn
+        toolName: pstack_review_flash
+        backgroundMode: one-shot
+        agentOptions:
+          provider: deepseek-official
+          model: deepseek-v4-flash
+
+    # Zero-context reader for /egm-review and /how: read and search only.
+    - id: pstack-tool-goldfish-reviewer
+      name: '@deepseek-ai/dsh-tool-subagent'
+      inject: [pstackAssets]
+      config:
+        provider: spawn
+        toolName: goldfish_reviewer
+        backgroundMode: one-shot
+        persona: !!js ctx.pstackAssets.personas.goldfishReviewer
+        toolFilter:
+          allow: [read, glob, grep, skill]
+        agentOptions:
+          provider: deepseek-official
+          model: deepseek-v4-pro
+
+    # The /no-comments comment stripper.
+    - id: pstack-tool-comment-sicko
+      name: '@deepseek-ai/dsh-tool-subagent'
+      inject: [pstackAssets]
+      config:
+        provider: spawn
+        toolName: comment_sicko
+        backgroundMode: one-shot
+        persona: !!js ctx.pstackAssets.personas.commentSicko
+        agentOptions:
+          provider: deepseek-official
+          model: deepseek-v4-pro
